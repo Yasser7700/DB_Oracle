@@ -1,0 +1,256 @@
+# خطة تنفيذ مشروع نظام التجارة الإلكترونية الآمن Oracle 19c
+
+---
+
+## ملخص المشروع
+
+هذا المشروع هو **نظام قاعدة بيانات آمن للتجارة الإلكترونية** مبني على Oracle 19c. يتضمن:
+- إنشاء Pluggable Database (PDB) مخصصة
+- جداول لإدارة العملاء، الطلبات، المنتجات، والمدفوعات
+- نظام أمان متكامل (RBAC, VPD, Data Masking)
+- نظام تدقيق ومراقبة
+- سياسات حماية الخصوصية
+
+---
+
+## بيئة العمل
+
+![واجهة SQL Developer](C:/Users/nasse/.gemini/antigravity/brain/b81dd257-3580-4f13-8469-29c49a42e3b5/uploaded_image_1768583790834.png)
+
+سنستخدم **Oracle SQL Developer 23.1** للاتصال بقاعدة البيانات وتنفيذ السكريبتات.
+
+---
+
+## المراحل المطلوبة
+
+| # | المرحلة | المدة المتوقعة | الملفات |
+|---|---------|----------------|---------|
+| 1 | إعداد البيئة (Setup) | 15-30 دقيقة | 3 ملفات |
+| 2 | كائنات المخطط (Schema Objects) | 20-40 دقيقة | 4 ملفات |
+| 3 | تنفيذ الأمان (Security) | 30-45 دقيقة | 5 ملفات |
+| 4 | حماية الخصوصية (Privacy) | 20-30 دقيقة | 4 ملفات |
+| 5 | التدقيق والمراقبة (Audit) | 20-30 دقيقة | 4 ملفات |
+| 6 | الصيانة (Maintenance) | 15-20 دقيقة | 3 ملفات |
+
+---
+
+## 🚀 المرحلة الأولى: إعداد البيئة
+
+> [!IMPORTANT]
+> هذه المرحلة تتطلب صلاحيات **SYSDBA** وسنتصل بـ **CDB$ROOT** أولاً
+
+### الخطوة 1.1: إنشاء اتصال SYS في SQL Developer
+
+#### بيانات الاتصال الأول (SYS as SYSDBA):
+
+| الحقل | القيمة |
+|-------|--------|
+| **Connection Name** | `CDB_SYS_ADMIN` |
+| **Username** | `SYS` |
+| **Password** | (كلمة مرور SYS الخاصة بك) |
+| **Role** | `SYSDBA` |
+| **Hostname** | `localhost` |
+| **Port** | `1521` |
+| **SID** | `xe` (أو `orcl` حسب التثبيت) |
+
+#### خطوات إنشاء الاتصال:
+1. افتح SQL Developer
+2. انقر بزر الماوس الأيمن على **Oracle Connections** → **New Connection**
+3. أدخل البيانات أعلاه
+4. **مهم**: غيّر **Role** من `default` إلى `SYSDBA`
+5. اضغط **Test** للتحقق من الاتصال
+6. اضغط **Connect**
+
+### ملفات المرحلة الأولى:
+
+| الترتيب | الملف | الوصف |
+|---------|-------|-------|
+| 1 | [01_Create_PDB.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/01_Setup/01_Create_PDB.sql) | إنشاء ECOM_PDB |
+| 2 | [02_Create_Tablespaces.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/01_Setup/02_Create_Tablespaces.sql) | إنشاء مساحات التخزين |
+| 3 | [03_Create_Schemas.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/01_Setup/03_Create_Schemas.sql) | إنشاء المستخدمين |
+
+### استعلام التحقق بعد المرحلة الأولى:
+```sql
+-- التحقق من إنشاء PDB
+SELECT NAME, OPEN_MODE FROM V$PDBS WHERE NAME = 'ECOM_PDB';
+-- يجب أن تظهر: ECOM_PDB | READ WRITE
+```
+
+---
+
+## المراحل التالية (سنفصلها عند الوصول إليها)
+
+- **المرحلة 2**: كائنات المخطط - تتطلب اتصال `ECOM_OWNER`
+- **المرحلة 3**: تنفيذ الأمان - تتطلب اتصال `SYS` و `SEC_ADMIN`
+- **المرحلة 4**: حماية الخصوصية - تتطلب اتصال `SEC_ADMIN`
+- **المرحلة 5**: التدقيق والمراقبة - تتطلب اتصال `SYS` و `AUDITOR`
+- **المرحلة 6**: الصيانة - تتطلب اتصال `SYS`
+
+---
+
+## خطة التحقق
+
+| المرحلة | طريقة التحقق |
+|---------|--------------|
+| 1 | `SELECT NAME, OPEN_MODE FROM V$PDBS WHERE NAME = 'ECOM_PDB';` |
+| 2 | `SELECT TABLE_NAME FROM DBA_TABLES WHERE OWNER = 'ECOM_OWNER';` |
+| 3 | `SELECT ROLE FROM DBA_ROLES WHERE ROLE LIKE 'ROLE_%';` |
+| 4 | `SELECT POLICY_NAME FROM DBA_REDACTION_POLICIES;` |
+| 5 | `SELECT POLICY_NAME FROM AUDIT_UNIFIED_POLICIES;` |
+
+---
+
+---
+
+---
+
+## 🔒 المرحلة الثالثة: تنفيذ الأمان
+
+> [!WARNING]
+> هذه المرحلة تتطلب التبديل بين المستخدمين بحذر.
+
+### الخطوة 3.1: إنشاء الأدوار (Roles)
+- **المستخدم**: `SYS` (استخدم اتصال `CDB_SYS_ADMIN`)
+- **الملف**: [01_RBAC_Roles.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/03_Security_Implementation/01_RBAC_Roles.sql)
+- **الغرض**: إنشاء الهيكل الهرمي للصلاحيات (Roles) وعلاقات التوريث بينها.
+
+### الخطوة 3.2: سياسات كلمات المرور
+- **المستخدم**: `SYS` (استخدم اتصال `CDB_SYS_ADMIN`)
+- **الملف**: [02_Password_Profiles.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/03_Security_Implementation/02_Password_Profiles.sql)
+- **الغرض**: فرض تعقيد كلمات المرور وانتهاء صلاحيتها.
+
+### الخطوة 3.3: سياسات VPD (أهم خطوة)
+- **المستخدم**: `SEC_ADMIN` (تحتاج لإنشاء اتصال جديد)
+- **الملف**: [03_VPD_Policies.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/03_Security_Implementation/03_VPD_Policies.sql)
+- **الغرض**: تطبيق الأمان على مستوى الصف (Row Level Security).
+
+### الخطوات 3.4 و 3.5:
+- [04_Access_Views.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/03_Security_Implementation/04_Access_Views.sql) (تنفيذ بـ `SEC_ADMIN`)
+- [05_Column_Privileges.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/03_Security_Implementation/05_Column_Privileges.sql) (تنفيذ بـ `SYS`)
+
+---
+
+### إعداد اتصال SEC_ADMIN:
+| الحقل | القيمة |
+|-------|--------|
+| **Connection Name** | `ECOM_Security` |
+| **Username** | `SEC_ADMIN` |
+| **Password** | `SecAdmin#2024` |
+| **Service Name** | `ECOM_PDB` |
+
+---
+
+### ملفات المرحلة الثالثة:
+
+| الترتيب | الملف | المستخدم |
+|---------|-------|----------|
+| 1 | [01_RBAC_Roles.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/03_Security_Implementation/01_RBAC_Roles.sql) | SYS |
+| 2 | [02_Password_Profiles.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/03_Security_Implementation/02_Password_Profiles.sql) | SYS |
+| 3 | [03_VPD_Policies.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/03_Security_Implementation/03_VPD_Policies.sql) | SEC_ADMIN |
+| 4 | [04_Access_Views.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/03_Security_Implementation/04_Access_Views.sql) | SEC_ADMIN |
+| 5 | [05_Column_Privileges.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/03_Security_Implementation/05_Column_Privileges.sql) | SYS |
+
+### استعلام التحقق:
+```sql
+SELECT ROLE FROM DBA_ROLES WHERE ROLE LIKE 'ROLE_%';
+```
+
+---
+
+## 🎭 المرحلة الرابعة: حماية الخصوصية (Data Privacy)
+
+> [!NOTE]
+> سنقوم بتطبيق تقنيات إخفاء البيانات (Data Masking) لحماية البيانات الحساسة مثل أرقام الهويات والبطاقات.
+
+### الخطوة 4.1: الإخفاء الثابت (Static Data Masking)
+- **المستخدم**: `ECOM_OWNER` (اتصال `ECOM_Development`)
+- **الملف**: [01_Static_Masking.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/04_Privacy_Protection/01_Static_Masking.sql)
+- **الغرض**: إخفاء البيانات بشكل دائم في بيئات التطوير والاختبار (تغيير القيم الحقيقية).
+
+### الخطوة 4.2: الإخفاء الديناميكي (Dynamic Data Masking)
+- **المستخدم**: `SEC_ADMIN` (اتصال `ECOM_Security`)
+- **الملف**: [02_Dynamic_Masking.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/04_Privacy_Protection/02_Dynamic_Masking.sql)
+- **الغرض**: إخفاء البيانات أثناء العرض فقط (On-the-fly) للمستخدمين غير المصرح لهم، مع بقاء البيانات الأصلية كما هي.
+- **مثال**: إظهار آخر 4 أرقام فقط من رقم الهاتف لموظف خدمة العملاء.
+
+### الخطوة 4.3: الترميز (Tokenization)
+- **المستخدم**: `SEC_ADMIN` (اتصال `ECOM_Security`)
+- **الملف**: [03_Tokenization.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/04_Privacy_Protection/03_Tokenization.sql)
+- **الغرض**: استبدال البيانات الحساسة (مثل أرقام البطاقات) برموز عشوائية (Tokens).
+
+### ملفات المرحلة الرابعة:
+
+| الترتيب | الملف | المستخدم |
+|---------|-------|----------|
+| 1 | [01_Static_Masking.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/04_Privacy_Protection/01_Static_Masking.sql) | ECOM_OWNER |
+| 2 | [02_Dynamic_Masking.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/04_Privacy_Protection/02_Dynamic_Masking.sql) | SEC_ADMIN |
+| 3 | [03_Tokenization.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/04_Privacy_Protection/03_Tokenization.sql) | SEC_ADMIN |
+| 4 | [04_Pseudonymization.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/04_Privacy_Protection/04_Pseudonymization.sql) | ECOM_OWNER |
+
+---
+
+## 👁️ المرحلة الخامسة: التدقيق والمراقبة (Audit & Monitoring)
+
+> [!NOTE]
+> سنقوم بتفعيل نظام التدقيق الموحد (Unified Auditing) والتدقيق الدقيق (FGA) لرصد جميع الأنشطة.
+
+### الخطوة 5.1: سياسات التدقيق الموحد
+- **المستخدم**: `SYS` (اتصال `CDB_SYS_ADMIN`)
+- **الملف**: [01_Audit_Policies.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/05_Audit_Monitoring/01_Audit_Policies.sql)
+- **الغرض**: تسجيل محاولات الدخول، العمليات على الجداول الحساسة، والتغييرات الهيكلية.
+
+### الخطوة 5.2: التدقيق الدقيق (FGA)
+- **المستخدم**: `SEC_ADMIN` (اتصال `ECOM_Security`)
+- **الملف**: `02_FGA_Policies.sql`
+- **الغرض**: تسجيل "من رأى ماذا؟" (مثلاً: من استعلم عن رصيد عميل معين) مع تسجيل جملة SQL المنفذة.
+
+### الخطوة 5.3: استعلامات المراقبة
+- **المستخدم**: `SYS` (لضمان تجاوز قيود الصلاحيات)
+- **الملف**: [03_Monitoring_Queries.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/05_Audit_Monitoring/03_Monitoring_Queries.sql)
+- **الغرض**: إنشاء لوحة تحكم (Views) في مخطط `SEC_ADMIN` لعرض سجلات التدقيق وتحليل الأنشطة المشبوهة.
+
+### الخطوة 5.4: إجراءات التنبيه
+- **المستخدم**: `SYS` (لضمان تجاوز قيود الصلاحيات وإنشاء Jobs)
+- **الملف**: [04_Alert_Procedures.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/05_Audit_Monitoring/04_Alert_Procedures.sql)
+- **الغرض**: إعداد إجراءات آلية وجدول زمني (Job Scheduler) لفحص السجلات دورياً وتسجيل التنبيهات في `ECOM_OWNER.SECURITY_ALERTS`.
+
+### ملفات المرحلة الخامسة (الترتيب النهائي):
+
+| الترتيب | الملف | المستخدم | ملاحظات هامة |
+|---------|-------|----------|--------------|
+| 1 | [00_Grant_Audit_View.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/05_Audit_Monitoring/00_Grant_Audit_View.sql) | SYS | ضروري جداً لمنح الصلاحيات |
+| 2 | [01_Audit_Policies.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/05_Audit_Monitoring/01_Audit_Policies.sql) | SYS | قد تظهر تحذيرات "already exists" وهي طبيعية |
+| 3 | [02_FGA_Policies.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/05_Audit_Monitoring/02_FGA_Policies.sql) | SEC_ADMIN | |
+| 4 | [03_Monitoring_Queries.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/05_Audit_Monitoring/03_Monitoring_Queries.sql) | SYS | ينشئ الكائنات في مخطط `SEC_ADMIN` |
+| 5 | [04_Alert_Procedures.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/05_Audit_Monitoring/04_Alert_Procedures.sql) | SYS | ينشئ الكائنات في مخطط `ECOM_OWNER` |
+
+---
+
+## 🛠️ المرحلة السادسة: الصيانة (Maintenance)
+
+> [!NOTE]
+> هذه المرحلة تهدف لضمان استمرارية عمل النظام بأمان، والتحقق من الامتثال للمعايير، وإعداد خطط الكوارث.
+
+### الخطوة 6.1: فحوصات التقوية (Hardening Checks)
+- **المستخدم**: `SYS` (اتصال `CDB_SYS_ADMIN`)
+- **الملف**: [01_Hardening_Checks.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/06_Maintenance/01_Hardening_Checks.sql)
+- **الغرض**: إجراء فحص شامل لإعدادات الأمان (مثل الحسابات الافتراضية، الصلاحيات الزائدة، كلمات المرور الضعيفة) وتقديم توصيات.
+
+### الخطوة 6.2: تقارير الامتثال (Compliance Reports)
+- **المستخدم**: `SYS` (اتصال `CDB_SYS_ADMIN`)
+- **الملف**: [02_Compliance_Reports.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/06_Maintenance/02_Compliance_Reports.sql)
+- **الغرض**: إنشاء تقارير آلية حول GDPR وحماية البيانات الحساسة، للمساعدة في عمليات التدقيق القانوني.
+
+### الخطوة 6.3: إجراءات النسخ الاحتياطي (Backup Procedures)
+- **المستخدم**: `SYS` (اتصال `CDB_SYS_ADMIN`)
+- **الملف**: [03_Backup_Procedures.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/06_Maintenance/03_Backup_Procedures.sql)
+- **الغرض**: تجهيز البنية التحتية للنسخ الاحتياطي (LOG Table, Procedures) وتوفير سكربتات RMAN جاهزة للاستخدام.
+
+### ملفات المرحلة السادسة:
+
+| الترتيب | الملف | المستخدم |
+|---------|-------|----------|
+| 1 | [01_Hardening_Checks.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/06_Maintenance/01_Hardening_Checks.sql) | SYS |
+| 2 | [02_Compliance_Reports.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/06_Maintenance/02_Compliance_Reports.sql) | SYS |
+| 3 | [03_Backup_Procedures.sql](file:///d:/%D8%A7%D9%84%D8%B3%D9%86%D9%87%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB%D9%87%20%D8%AA%D8%B1%D9%85%20%D8%AB%D8%A7%D9%86%D9%8A/DB_Oracle/DB_Oracle/02_Database_Scripts/06_Maintenance/03_Backup_Procedures.sql) | SYS |
+

@@ -1,0 +1,124 @@
+================================================================================
+                     سيناريو العمل الطبيعي
+                   نظام التجارة الإلكترونية الآمن
+================================================================================
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    سيناريو 1: رحلة العميل الكاملة                            ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📍 الخطوة 1: تسجيل عميل جديد (تطبيق الويب - APP_USER)
+----------------------------------------------------------
+INSERT INTO ECOM_OWNER.CUSTOMERS 
+(CUSTOMER_CODE, FIRST_NAME, LAST_NAME, EMAIL, PHONE, DATE_OF_BIRTH, GENDER, NATIONAL_ID, PASSWORD_HASH)
+VALUES 
+('CUST-NEW1', 'سعد', 'الغامدي', 'saad@email.com', '0512345678', DATE '1991-04-20', 'M', '1098765432', 'hashed_pwd');
+
+📍 الخطوة 2: إضافة عنوان الشحن
+----------------------------------------------------------
+INSERT INTO ECOM_OWNER.ADDRESSES 
+(CUSTOMER_ID, ADDRESS_TYPE, ADDRESS_LINE1, CITY, STATE_PROVINCE, POSTAL_CODE, IS_DEFAULT, RECIPIENT_NAME)
+VALUES 
+((SELECT CUSTOMER_ID FROM CUSTOMERS WHERE CUSTOMER_CODE = 'CUST-NEW1'), 
+ 'BOTH', 'حي الملقا، شارع 15', 'الرياض', 'منطقة الرياض', '12456', 'Y', 'سعد الغامدي');
+
+📍 الخطوة 3: إنشاء طلب جديد (SALES_REP)
+----------------------------------------------------------
+INSERT INTO ECOM_OWNER.ORDERS 
+(ORDER_NUMBER, CUSTOMER_ID, ORDER_STATUS, PAYMENT_STATUS, SUBTOTAL, TAX_AMOUNT, SHIPPING_AMOUNT, TOTAL_AMOUNT, SHIPPING_ADDRESS_ID, BILLING_ADDRESS_ID, SHIPPING_METHOD)
+VALUES 
+('ORD-' || TO_CHAR(SYSDATE,'YYYYMMDD') || '-TEST01',
+ (SELECT CUSTOMER_ID FROM CUSTOMERS WHERE CUSTOMER_CODE = 'CUST-NEW1'),
+ 'PENDING', 'PENDING', 5499.00, 824.85, 0, 6323.85,
+ (SELECT ADDRESS_ID FROM ADDRESSES WHERE CUSTOMER_ID = (SELECT CUSTOMER_ID FROM CUSTOMERS WHERE CUSTOMER_CODE = 'CUST-NEW1') AND ROWNUM = 1),
+ (SELECT ADDRESS_ID FROM ADDRESSES WHERE CUSTOMER_ID = (SELECT CUSTOMER_ID FROM CUSTOMERS WHERE CUSTOMER_CODE = 'CUST-NEW1') AND ROWNUM = 1),
+ 'EXPRESS');
+
+📍 الخطوة 4: إضافة عناصر الطلب
+----------------------------------------------------------
+INSERT INTO ECOM_OWNER.ORDER_ITEMS 
+(ORDER_ID, PRODUCT_ID, QUANTITY, UNIT_PRICE, DISCOUNT_PERCENT, LINE_TOTAL)
+VALUES 
+((SELECT MAX(ORDER_ID) FROM ORDERS), 1, 1, 5499.00, 0, 5499.00);
+
+📍 الخطوة 5: تسجيل الدفع
+----------------------------------------------------------
+INSERT INTO ECOM_OWNER.PAYMENTS 
+(ORDER_ID, PAYMENT_METHOD, AMOUNT, TRANSACTION_ID, CARD_LAST_FOUR, CARD_TOKEN, STATUS)
+VALUES 
+((SELECT MAX(ORDER_ID) FROM ORDERS), 'CREDIT_CARD', 6323.85, 'TXN-TEST-001', '9876', 'tok_test_9876', 'COMPLETED');
+
+-- تحديث حالة الطلب
+UPDATE ECOM_OWNER.ORDERS SET ORDER_STATUS = 'CONFIRMED', PAYMENT_STATUS = 'PAID' 
+WHERE ORDER_ID = (SELECT MAX(ORDER_ID) FROM ORDERS);
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    سيناريو 2: خدمة العملاء (CS_AGENT)                        ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📍 البحث عن عميل
+----------------------------------------------------------
+-- ملاحظة: CS_AGENT يرى بيانات مخفية جزئياً بسبب Data Redaction
+SELECT CUSTOMER_ID, FIRST_NAME, EMAIL, PHONE, CUSTOMER_TIER 
+FROM ECOM_OWNER.V_CUSTOMERS_SUPPORT 
+WHERE FIRST_NAME LIKE '%سعد%';
+
+📍 عرض طلبات العميل
+----------------------------------------------------------
+SELECT ORDER_NUMBER, ORDER_DATE, ORDER_STATUS, TOTAL_AMOUNT 
+FROM ECOM_OWNER.ORDERS 
+WHERE CUSTOMER_ID = :customer_id 
+ORDER BY ORDER_DATE DESC;
+
+📍 تحديث ملاحظات الطلب
+----------------------------------------------------------
+UPDATE ECOM_OWNER.ORDERS 
+SET NOTES = 'تم التواصل مع العميل - يريد تغيير وقت التسليم' 
+WHERE ORDER_NUMBER = 'ORD-XXXXX';
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    سيناريو 3: المستودع (WAREHOUSE_STAFF)                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📍 عرض الطلبات الجاهزة للشحن
+----------------------------------------------------------
+SELECT * FROM ECOM_OWNER.V_ORDERS_WAREHOUSE 
+WHERE ORDER_STATUS = 'CONFIRMED';
+
+📍 تحديث حالة الشحن
+----------------------------------------------------------
+UPDATE ECOM_OWNER.ORDERS 
+SET ORDER_STATUS = 'SHIPPED', 
+    TRACKING_NUMBER = 'ARAMEX123456789',
+    ESTIMATED_DELIVERY = SYSDATE + 3
+WHERE ORDER_NUMBER = 'ORD-XXXXX';
+
+📍 تأكيد التسليم
+----------------------------------------------------------
+UPDATE ECOM_OWNER.ORDERS 
+SET ORDER_STATUS = 'DELIVERED', 
+    ACTUAL_DELIVERY = SYSDATE
+WHERE ORDER_NUMBER = 'ORD-XXXXX';
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    سيناريو 4: التدقيق (AUDITOR)                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📍 مراجعة سجلات الوصول
+----------------------------------------------------------
+SELECT * FROM ECOM_OWNER.V_SENSITIVE_ACCESS 
+WHERE EVENT_TIMESTAMP > SYSDATE - 1
+ORDER BY EVENT_TIMESTAMP DESC;
+
+📍 فحص محاولات الدخول الفاشلة
+----------------------------------------------------------
+SELECT * FROM ECOM_OWNER.V_FAILED_LOGINS 
+WHERE EVENT_TIMESTAMP > SYSDATE - 7;
+
+📍 مراجعة التنبيهات النشطة
+----------------------------------------------------------
+SELECT * FROM ECOM_OWNER.V_ACTIVE_ALERTS;
+
+================================================================================
+                         نهاية سيناريوهات العمل
+================================================================================

@@ -1,0 +1,92 @@
+================================================================================
+               استعلامات التحقق من إعداد قاعدة البيانات
+                   نظام التجارة الإلكترونية الآمن
+================================================================================
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    1. التحقق من البيئة الأساسية                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+-- التحقق من PDB
+SELECT NAME, OPEN_MODE, RESTRICTED FROM V$PDBS WHERE NAME = 'ECOM_PDB';
+-- النتيجة المتوقعة: ECOM_PDB | READ WRITE | NO
+
+-- التحقق من الخدمة
+SELECT NAME, PDB FROM V$SERVICES WHERE PDB = 'ECOM_PDB';
+
+-- التحقق من Tablespaces
+SELECT TABLESPACE_NAME, STATUS, CONTENTS FROM DBA_TABLESPACES WHERE TABLESPACE_NAME LIKE 'ECOM_%';
+-- يجب أن تظهر: ECOM_DATA, ECOM_INDEX, ECOM_AUDIT, ECOM_ARCHIVE, ECOM_TEMP, ECOM_SECURE
+
+-- المساحة المتاحة
+SELECT TABLESPACE_NAME, ROUND(SUM(BYTES)/1024/1024,2) AS FREE_MB FROM DBA_FREE_SPACE WHERE TABLESPACE_NAME LIKE 'ECOM_%' GROUP BY TABLESPACE_NAME;
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    2. التحقق من المستخدمين والأدوار                          ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+-- المستخدمون
+SELECT USERNAME, ACCOUNT_STATUS, PROFILE FROM DBA_USERS WHERE USERNAME IN ('ECOM_OWNER','SEC_ADMIN','APP_USER','CS_AGENT','WAREHOUSE_STAFF','SALES_REP','AUDITOR','REPORT_USER');
+-- يجب أن يكون ACCOUNT_STATUS = OPEN لجميعهم
+
+-- الأدوار
+SELECT ROLE FROM DBA_ROLES WHERE ROLE LIKE 'ROLE_%' ORDER BY ROLE;
+-- يجب أن تظهر: ROLE_ADMIN, ROLE_AUDIT, ROLE_READONLY, ROLE_SALES, ROLE_SECURITY, ROLE_SUPPORT, ROLE_WAREHOUSE
+
+-- الأدوار الممنوحة
+SELECT GRANTEE, GRANTED_ROLE FROM DBA_ROLE_PRIVS WHERE GRANTED_ROLE LIKE 'ROLE_%';
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    3. التحقق من الجداول والبيانات                            ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+-- الجداول
+SELECT TABLE_NAME, NUM_ROWS FROM USER_TABLES ORDER BY TABLE_NAME;
+-- يجب أن تظهر: CATEGORIES, CUSTOMERS, ORDERS, ORDER_ITEMS, PAYMENTS, PRODUCTS, ADDRESSES, AUDIT_LOG...
+
+-- عدد السجلات
+SELECT 'CUSTOMERS' AS TBL, COUNT(*) AS CNT FROM ECOM_OWNER.CUSTOMERS UNION ALL
+SELECT 'PRODUCTS', COUNT(*) FROM ECOM_OWNER.PRODUCTS UNION ALL
+SELECT 'ORDERS', COUNT(*) FROM ECOM_OWNER.ORDERS UNION ALL
+SELECT 'CATEGORIES', COUNT(*) FROM ECOM_OWNER.CATEGORIES;
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    4. التحقق من سياسات الأمان                                ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+-- VPD Policies
+SELECT OBJECT_NAME, POLICY_NAME, ENABLE FROM DBA_POLICIES WHERE OBJECT_OWNER = 'ECOM_OWNER';
+-- يجب أن تظهر: VPD_CUSTOMERS, VPD_ORDERS
+
+-- Redaction Policies
+SELECT OBJECT_NAME, COLUMN_NAME, POLICY_NAME, ENABLE FROM REDACTION_POLICIES WHERE OBJECT_OWNER = 'ECOM_OWNER';
+-- يجب أن تظهر سياسات إخفاء EMAIL, PHONE, NATIONAL_ID...
+
+-- FGA Policies
+SELECT OBJECT_NAME, POLICY_NAME, ENABLED FROM DBA_AUDIT_POLICIES WHERE OBJECT_SCHEMA = 'ECOM_OWNER';
+
+-- Audit Policies
+SELECT POLICY_NAME, ENABLED_OPT FROM AUDIT_UNIFIED_ENABLED_POLICIES WHERE POLICY_NAME LIKE 'ECOM_%';
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    5. التحقق من ملفات التعريف                                ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+SELECT PROFILE, RESOURCE_NAME, LIMIT FROM DBA_PROFILES WHERE PROFILE LIKE 'ECOM_%' AND RESOURCE_TYPE = 'PASSWORD' ORDER BY PROFILE, RESOURCE_NAME;
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    6. ملخص حالة النظام                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+-- ملخص شامل
+SELECT 
+    (SELECT COUNT(*) FROM DBA_USERS WHERE USERNAME LIKE 'ECOM%' OR USERNAME IN ('SEC_ADMIN','CS_AGENT','AUDITOR')) AS USERS,
+    (SELECT COUNT(*) FROM DBA_ROLES WHERE ROLE LIKE 'ROLE_%') AS ROLES,
+    (SELECT COUNT(*) FROM USER_TABLES) AS TABLES,
+    (SELECT COUNT(*) FROM DBA_POLICIES WHERE OBJECT_OWNER = 'ECOM_OWNER') AS VPD_POLICIES,
+    (SELECT COUNT(*) FROM AUDIT_UNIFIED_ENABLED_POLICIES WHERE POLICY_NAME LIKE 'ECOM_%') AS AUDIT_POLICIES
+FROM DUAL;
+
+================================================================================
+                         نهاية استعلامات التحقق
+================================================================================
